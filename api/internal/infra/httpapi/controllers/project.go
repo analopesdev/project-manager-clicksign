@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -24,8 +25,8 @@ var validateProject = validator.New()
 type CreateOrUpdateProjectRequest struct {
 	Name      string `json:"name" validate:"required,max=120"`
 	Client    string `json:"client" validate:"required,max=120"`
-	StartDate string `json:"start_date" validate:"required,date"`
-	EndDate   string `json:"end_date" validate:"required,date"`
+	StartDate string `json:"start_date" validate:"required,datetime=2006-01-02"`
+	EndDate   string `json:"end_date" validate:"required,datetime=2006-01-02"`
 	CoverURL  string `json:"cover_url" validate:"omitempty,url"`
 }
 
@@ -44,21 +45,21 @@ type ListProjectsParams struct {
 	FavoriteOnly bool   `json:"favorite"`
 }
 
-func (r *ListProjectsParams) Validate() error {
+func (r *ListProjectsParams) ValidateListProjectsParams() error {
 	return validateProject.Struct(r)
 }
 
+type SetFavoriteRequest struct {
+	Favorite *bool `json:"favorite"`
+}
+
 func (c *ProjectController) ListProjects(w http.ResponseWriter, r *http.Request) {
-	var params ListProjectsParams
+	query := r.URL.Query()
 
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if err := params.Validate(); err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: err.Error()})
-		return
+	params := ListProjectsParams{
+		Search:       query.Get("search"),
+		Sort:         query.Get("sort"),
+		FavoriteOnly: query.Get("favorite") == "true" || query.Get("favorite") == "1",
 	}
 
 	result, total, err := c.service.ListProjects(r.Context(), params.Search, params.Sort, params.FavoriteOnly)
@@ -83,6 +84,8 @@ func (c *ProjectController) GetProjectById(w http.ResponseWriter, r *http.Reques
 
 func (c *ProjectController) CreateProject(w http.ResponseWriter, r *http.Request) {
 	var dto CreateOrUpdateProjectRequest
+
+	fmt.Println("dto", dto)
 
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -125,14 +128,18 @@ func (c *ProjectController) UpdateProject(w http.ResponseWriter, r *http.Request
 }
 
 func (c *ProjectController) SetFavorite(w http.ResponseWriter, r *http.Request) {
-	var request bool
+	var dto SetFavoriteRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if dto.Favorite == nil {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "favorite is required"})
+		return
+	}
 
-	p, err := c.service.SetFavorite(r.Context(), chi.URLParam(r, "id"), request)
+	p, err := c.service.SetFavorite(r.Context(), chi.URLParam(r, "id"), *dto.Favorite)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

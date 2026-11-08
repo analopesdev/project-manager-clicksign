@@ -38,7 +38,7 @@ paths:
       summary: Lista projetos
       description: |
         Aceita busca, filtro de favoritos e ordenação. `meta.total` é o total de projetos
-        cadastrados, **ignorando** `q` e `favorite`.
+        cadastrados, **ignorando** `search` e `favorite`.
 
         Ordenação:
         - `name` (padrão): ordem alfabética, sem diferenciar maiúsculas.
@@ -49,7 +49,7 @@ paths:
         Todas as ordenações desempatam por `id`, então a ordem é estável.
       operationId: listProjects
       parameters:
-        - name: q
+        - name: search
           in: query
           description: Busca por trecho do nome ou do cliente (sem diferenciar maiúsculas).
           schema:
