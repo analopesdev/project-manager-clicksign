@@ -1,0 +1,306 @@
+openapi: 3.0.3
+info:
+  title: Project Manager API
+  version: 1.0.0
+  description: |
+    API para gerenciar projetos: cadastro, edição, exclusão, favoritos, busca e ordenação.
+
+    **Datas** usam o formato `YYYY-MM-DD`. **Timestamps** são RFC 3339 e vêm do banco.
+
+    **Erros de validação** respondem `422` com uma mensagem por campo em `fields`.
+servers:
+  - url: /
+tags:
+  - name: Projects
+  - name: Health
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Verifica se a API está no ar
+      operationId: health
+      responses:
+        "200":
+          description: API no ar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /projects:
+    get:
+      tags: [Projects]
+      summary: Lista projetos
+      description: |
+        Aceita busca, filtro de favoritos e ordenação. `meta.total` é o total de projetos
+        cadastrados, **ignorando** `q` e `favorite`.
+
+        Ordenação:
+        - `name` (padrão): ordem alfabética, sem diferenciar maiúsculas.
+        - `start_date`: iniciados mais recentemente primeiro.
+        - `end_date`: prazos futuros primeiro (do mais próximo ao mais distante); projetos já
+          encerrados por último, do encerrado mais recentemente ao mais antigo.
+
+        Todas as ordenações desempatam por `id`, então a ordem é estável.
+      operationId: listProjects
+      parameters:
+        - name: q
+          in: query
+          description: Busca por trecho do nome ou do cliente (sem diferenciar maiúsculas).
+          schema:
+            type: string
+          example: clicksign
+        - name: favorite
+          in: query
+          description: Quando `true`, retorna só os favoritos.
+          schema:
+            type: string
+            enum: ["true", "false", "1", "0"]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, start_date, end_date]
+            default: name
+      responses:
+        "200":
+          description: Lista de projetos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectList"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [Projects]
+      summary: Cria um projeto
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Projeto criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      tags: [Projects]
+      summary: Busca um projeto pelo id
+      operationId: getProject
+      responses:
+        "200":
+          description: Projeto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Projects]
+      summary: Atualiza um projeto
+      description: Substitui os campos editáveis. Não altera `favorite`.
+      operationId: updateProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "200":
+          description: Projeto atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [Projects]
+      summary: Remove um projeto
+      operationId: deleteProject
+      responses:
+        "204":
+          description: Projeto removido
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{id}/favorite:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    patch:
+      tags: [Projects]
+      summary: Marca ou desmarca um projeto como favorito
+      description: Favoritar não altera `updated_at`, que representa a última edição do conteúdo.
+      operationId: setFavorite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [favorite]
+              properties:
+                favorite:
+                  type: boolean
+                  example: true
+      responses:
+        "200":
+          description: Projeto atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+components:
+  parameters:
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      description: Id do projeto (UUID). Um id mal formado responde 404.
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    ProjectInput:
+      type: object
+      required: [name, client, start_date, end_date]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          example: Redesign do app
+        client:
+          type: string
+          maxLength: 120
+          example: Clicksign
+        start_date:
+          type: string
+          format: date
+          example: "2026-01-15"
+        end_date:
+          type: string
+          format: date
+          description: Não pode ser anterior a `start_date`.
+          example: "2026-06-30"
+        cover_url:
+          type: string
+          format: uri
+          description: Opcional. URL `http` ou `https`.
+          example: https://example.com/cover.png
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        client:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        cover_url:
+          type: string
+          description: Vazio (`""`) quando o projeto não tem capa.
+        favorite:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: Última edição do conteúdo (favoritar não altera).
+
+    ProjectList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+              description: Total de projetos cadastrados, independente dos filtros.
+              example: 12
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: validation failed
+        fields:
+          type: object
+          description: Mensagem por campo inválido.
+          additionalProperties:
+            type: string
+          example:
+            name: name is required
+            end_date: end_date must not be before start_date
+
+  responses:
+    BadRequest:
+      description: Corpo inválido (JSON malformado ou campo desconhecido)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Projeto não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Dados inválidos
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
