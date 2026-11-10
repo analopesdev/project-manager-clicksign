@@ -181,6 +181,37 @@ describe("useProjectList", () => {
     });
   });
 
+  describe("lupa de busca", () => {
+    it("só fica disponível quando existe algum projeto", async () => {
+      listProjects.mockResolvedValue({ projects: [], total: 0 });
+      await setup();
+      const search = (
+        await import("@/composables/useProjectSearch")
+      ).useProjectSearch();
+      expect(search.hasProjects.value).toBe(false);
+    });
+
+    it("continua disponível com favoritos filtrando e nenhum resultado", async () => {
+      listProjects.mockResolvedValue({ projects: [], total: 3 });
+      route.query = { favorite: "1" };
+      await setup();
+      const search = (
+        await import("@/composables/useProjectSearch")
+      ).useProjectSearch();
+      expect(search.hasProjects.value).toBe(true);
+    });
+
+    it("fecha a busca quando o último projeto some", async () => {
+      const list = await setup();
+      list.searchTerm.value = "app";
+      list.searchOpen.value = true;
+      listProjects.mockResolvedValue({ projects: [], total: 0 });
+      await list.load();
+      expect(list.searchOpen.value).toBe(false);
+      expect(list.searchTerm.value).toBe("");
+    });
+  });
+
   describe("requisições fora de ordem", () => {
     it("cancela a requisição anterior e só usa a resposta da mais recente", async () => {
       const calls: ReturnType<typeof deferred>[] = [];

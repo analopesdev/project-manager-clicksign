@@ -26,6 +26,7 @@ function saveHistory(items: string[]) {
 }
 
 const isOpen = ref(false);
+const hasProjects = ref(false);
 const term = ref("");
 const history = ref<string[]>(loadHistory());
 
@@ -56,7 +57,16 @@ function useProjectSearch() {
     saveHistory(history.value);
   }
 
-  return { isOpen, term, history, toggle, close, remember, forget };
+  return {
+    isOpen,
+    hasProjects,
+    term,
+    history,
+    toggle,
+    close,
+    remember,
+    forget
+  };
 }
 
 export { useProjectSearch };
