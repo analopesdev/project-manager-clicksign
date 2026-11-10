@@ -30,6 +30,7 @@ const {
 const isEmpty = computed(
   () => loaded.value && !error.value && total.value === 0
 );
+const initialLoading = computed(() => !loaded.value && !error.value);
 const isSearching = computed(
   () => searchOpen.value && searchTerm.value.trim() !== ""
 );
@@ -45,7 +46,16 @@ function goToEdit(project: Project) {
 
 <template>
   <q-page class="projects-page" :class="{ 'projects-page--empty': isEmpty }">
-    <ProjectsEmpty v-if="isEmpty" @create="goToCreate" />
+    <div
+      v-if="initialLoading"
+      class="state"
+      role="status"
+      aria-label="Carregando projetos"
+    >
+      <q-spinner color="primary" size="40px" />
+    </div>
+
+    <ProjectsEmpty v-else-if="isEmpty" @create="goToCreate" />
 
     <template v-else>
       <ProjectsSearch
@@ -69,16 +79,7 @@ function goToEdit(project: Project) {
         @create="goToCreate"
       />
 
-      <div
-        v-if="loading && !loaded"
-        class="state"
-        role="status"
-        aria-label="Carregando projetos"
-      >
-        <q-spinner color="primary" size="40px" />
-      </div>
-
-      <div v-else-if="error" class="state" role="alert">
+      <div v-if="error" class="state" role="alert">
         <p>{{ error }}</p>
         <q-btn color="primary" label="Tentar novamente" no-caps @click="load" />
       </div>
