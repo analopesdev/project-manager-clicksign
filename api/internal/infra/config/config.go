@@ -8,12 +8,14 @@ import (
 type Config struct {
 	DatabaseURL string
 	Port        string
+	UploadDir   string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		Port:        getEnv("PORT", "8080"),
+		UploadDir:   getEnv("UPLOAD_DIR", "uploads"),
 	}
 
 	if cfg.DatabaseURL == "" {
