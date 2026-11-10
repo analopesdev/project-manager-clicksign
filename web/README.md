@@ -31,7 +31,7 @@ pages/
   index.vue                  lista de projetos (busca, favoritos, ordenação, remover)
   projects/                  tudo que é de projetos fica aqui dentro
     form.vue                 criar e editar (/projects/new e /projects/:id/edit)
-    components/              card, filtros, busca, formulário, modal, esqueleto...
+    components/              card, filtros, busca, formulário, modal...
     composables/             useProjectList (lista + filtros na URL)
     service.ts               chamadas à API, tipo Project, snake_case -> camelCase
     schema.ts                validação do formulário com zod
