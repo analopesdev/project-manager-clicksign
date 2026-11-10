@@ -3,13 +3,22 @@
 Aplicação para gerenciar projetos: lista com busca, favoritos e ordenação, e telas para criar,
 editar e remover. Front em Vue 3 + Quasar, API em Go e Postgres, seguindo o design do Figma.
 
+## Acesso online
+
+- **Front:** <https://project-manager-web-o5fr.onrender.com/#/>
+- **API:** <https://project-manager-api-r1g5.onrender.com> (`/health` e documentação em `/docs`)
+
+Está no plano gratuito do Render: depois de um tempo sem uso a API "dorme", então o primeiro
+acesso pode levar cerca de um minuto para responder. As capas enviadas ficam no disco da API e
+somem quando ela é reiniciada ou reimplantada (veja [Limitações conhecidas](#limitações-conhecidas)).
+
 Detalhes de cada parte: [`api/README.md`](api/README.md) (API) e [`web/README.md`](web/README.md) (front).
 
 ## O que dá para fazer
 
 - **Listar** os projetos em cards (capa, nome, cliente, datas) com estados de carregamento
-  (esqueleto), erro, lista vazia e "nenhum resultado".
-- **Buscar** pelo nome ou pelo cliente (ícone de lupa no header), com histórico das últimas
+  (indicador de carregando), erro, lista vazia e "nenhum resultado".
+- **Buscar** pelo nome ou pelo cliente (ícone de lupa no header, só na tela principal), com histórico das últimas
   5 buscas e o trecho encontrado destacado nos cards.
 - **Favoritar** (a estrela muda na hora) e filtrar só os favoritos.
 - **Ordenar** por ordem alfabética, projetos iniciados mais recentemente ou prazo mais próximo.
@@ -83,6 +92,8 @@ Com o banco recém-criado a lista começa vazia (aparece a tela "Nenhum projeto"
 | `INCOMPATIBLE NODE VERSION` no `pnpm install` | use Node 22.22 ou mais novo |
 | O front abre mas a lista dá erro | a API não está rodando na porta 8080 |
 | A capa enviada não aparece | a API precisa estar acessível em `http://localhost:8080` (o front só permite essa origem para imagens em desenvolvimento) |
+| Online, a lista não carrega e o console fala em Content Security Policy | `VITE_API_URL` não estava definida no build do front; defina e faça um novo deploy |
+| Online, a primeira tela demora muito | a API do plano gratuito estava "dormindo"; aguarde cerca de um minuto |
 
 ### Variáveis de ambiente
 
@@ -91,7 +102,26 @@ Com o banco recém-criado a lista começa vazia (aparece a tela "Nenhum projeto"
 | `api/.env` | `DATABASE_URL` | (obrigatória) | conexão com o Postgres; o exemplo já bate com o `docker-compose.yml` |
 | `api/.env` | `PORT` | `8080` | porta da API |
 | `api/.env` | `UPLOAD_DIR` | `uploads` | pasta onde ficam as capas enviadas (ignorada pelo git) |
-| `web/.env` | `VITE_API_URL` | `/api` | endereço base da API; em desenvolvimento não precisa mudar |
+| `api/.env` | `CORS_ORIGINS` | (qualquer origem) | origens do front aceitas pela API, separadas por vírgula |
+| `web/.env` | `VITE_API_URL` | `/api` | endereço base da API; em desenvolvimento não precisa mudar. Em produção é lido no build e também libera a API na CSP |
+
+## Deploy no Render
+
+São três serviços, criados nesta ordem. Todos usam este repositório (branch `main`).
+
+| Serviço | Tipo | Configuração |
+|---|---|---|
+| Banco | PostgreSQL 18 | copie a **Internal Database URL** |
+| API | Web Service (Go) | Root Directory `api`; Build `go build -tags netgo -ldflags '-s -w' -o app ./cmd`; Start `./app`; Health Check `/health`; variável `DATABASE_URL` com a Internal URL do banco |
+| Front | Static Site | Root Directory `web`; Build `pnpm install && pnpm build`; Publish Directory `dist/spa`; variáveis `VITE_API_URL` (URL pública da API, sem barra no final) e `NODE_VERSION=22.22.0` |
+
+Notas:
+
+- O banco e a API precisam estar na **mesma região** para a Internal URL funcionar.
+- As migrações rodam sozinhas quando a API sobe.
+- `VITE_API_URL` entra no build do front: se a URL da API mudar, faça um novo deploy do front.
+- Sem `CORS_ORIGINS`, a API aceita qualquer origem; para restringir, use a URL do front
+  (ex.: `https://project-manager-web-o5fr.onrender.com`).
 
 ## Telas e rotas
 
@@ -149,7 +179,7 @@ Detalhes, decisões e exemplos em [`api/README.md`](api/README.md).
   de filtros some nos resultados, então um filtro invisível não poderia esconder resultados.
 - **Requisições fora de ordem.** Cada carga cancela a anterior (`AbortController`); só a mais
   recente atualiza a tela, e uma requisição cancelada não apaga o "carregando" da nova.
-- **Carregamento sem piscar.** O esqueleto aparece só no primeiro carregamento; ao trocar filtro
+- **Carregamento sem piscar.** O indicador de carregando aparece só no primeiro carregamento; ao trocar filtro
   ou busca a lista antiga fica levemente apagada até a nova chegar.
 - **Favoritar é otimista.** A estrela muda na hora e volta ao estado anterior se a API falhar.
 - **Validação em dois níveis.** O front valida com **zod**, com as mensagens do design, e a API
