@@ -6,9 +6,9 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 
 const route = useRoute();
-const { isOpen, toggle } = useProjectSearch();
+const { isOpen, hasProjects, toggle } = useProjectSearch();
 
-const isHome = computed(() => route.path === "/");
+const showSearch = computed(() => route.path === "/" && hasProjects.value);
 </script>
 
 <template>
@@ -26,7 +26,7 @@ const isHome = computed(() => route.path === "/");
         <span class="brand-name">Gerenciador<br />de Projetos</span>
       </router-link>
 
-      <div v-if="isHome" class="actions">
+      <div v-if="showSearch" class="actions">
         <q-btn
           flat
           round

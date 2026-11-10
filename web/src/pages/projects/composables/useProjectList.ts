@@ -62,6 +62,11 @@ export function useProjectList() {
       projects.value = result.projects;
       total.value = result.total;
       loaded.value = true;
+      search.hasProjects.value = result.total > 0;
+      if (result.total === 0) {
+        search.isOpen.value = false;
+        search.term.value = "";
+      }
     } catch (err) {
       if (axios.isCancel(err)) return;
       error.value = "Não foi possível carregar os projetos. Tente novamente.";
@@ -139,6 +144,7 @@ export function useProjectList() {
     controller?.abort();
     search.isOpen.value = false;
     search.term.value = "";
+    search.hasProjects.value = false;
   });
 
   return {
