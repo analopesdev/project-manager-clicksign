@@ -75,7 +75,7 @@ paths:
       tags: [Projects]
       summary: Lista projetos
       description: |
-        Aceita busca, filtro de favoritos e ordenação. `meta.total` é o total de projetos
+        Aceita busca, filtro de favoritos e ordenação. `total` é o total de projetos
         cadastrados, **ignorando** `search` e `favorite`.
 
         Ordenação:
@@ -294,13 +294,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Project"
-        meta:
-          type: object
-          properties:
-            total:
-              type: integer
-              description: Total de projetos cadastrados, independente dos filtros.
-              example: 12
+        total:
+          type: integer
+          description: Total de projetos cadastrados, independente dos filtros.
+          example: 12
 
     Error:
       type: object

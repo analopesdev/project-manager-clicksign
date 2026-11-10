@@ -2,14 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/analopesdev/project-manager-clicksign/api/internal/domain/project"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 )
+
+const maxBodyBytes = 1 << 20
 
 type ProjectController struct {
 	service *project.ProjectService
@@ -20,18 +21,12 @@ func NewProjectController(service *project.ProjectService, logger *slog.Logger) 
 	return &ProjectController{service: service, logger: logger}
 }
 
-var validateProject = validator.New()
-
 type CreateOrUpdateProjectRequest struct {
-	Name      string `json:"name" validate:"required,max=120"`
-	Client    string `json:"client" validate:"required,max=120"`
-	StartDate string `json:"start_date" validate:"required,datetime=2006-01-02"`
-	EndDate   string `json:"end_date" validate:"required,datetime=2006-01-02"`
-	CoverURL  string `json:"cover_url" validate:"omitempty,url"`
-}
-
-func (r *CreateOrUpdateProjectRequest) Validate() error {
-	return validateProject.Struct(r)
+	Name      string `json:"name"`
+	Client    string `json:"client"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+	CoverURL  string `json:"cover_url"`
 }
 
 type ListProjectsResponse struct {
@@ -40,13 +35,9 @@ type ListProjectsResponse struct {
 }
 
 type ListProjectsParams struct {
-	Search       string `json:"search"`
-	Sort         string `json:"sort"`
-	FavoriteOnly bool   `json:"favorite"`
-}
-
-func (r *ListProjectsParams) ValidateListProjectsParams() error {
-	return validateProject.Struct(r)
+	Search       string
+	Sort         string
+	FavoriteOnly bool
 }
 
 type SetFavoriteRequest struct {
@@ -64,7 +55,7 @@ func (c *ProjectController) ListProjects(w http.ResponseWriter, r *http.Request)
 
 	result, total, err := c.service.ListProjects(r.Context(), params.Search, params.Sort, params.FavoriteOnly)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		c.writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ListProjectsResponse{Data: result, Total: total})
@@ -73,55 +64,35 @@ func (c *ProjectController) ListProjects(w http.ResponseWriter, r *http.Request)
 func (c *ProjectController) GetProjectById(w http.ResponseWriter, r *http.Request) {
 	p, err := c.service.GetProjectById(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: err.Error()})
+		c.writeServiceError(w, r, err)
 		return
 	}
-	if err := writeJSON(w, http.StatusOK, p); err != nil {
-		c.logger.ErrorContext(r.Context(), "failed to write response", "error", err)
-		return
-	}
+	writeJSON(w, http.StatusOK, p)
 }
 
 func (c *ProjectController) CreateProject(w http.ResponseWriter, r *http.Request) {
 	var dto CreateOrUpdateProjectRequest
-
-	fmt.Println("dto", dto)
-
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if err := dto.Validate(); err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: err.Error()})
+	if !decodeJSON(w, r, &dto) {
 		return
 	}
 
 	p, err := c.service.CreateProject(r.Context(), dto.Name, dto.Client, dto.StartDate, dto.EndDate, dto.CoverURL)
-
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		c.writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, p)
 }
 
 func (c *ProjectController) UpdateProject(w http.ResponseWriter, r *http.Request) {
-	var request CreateOrUpdateProjectRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	var dto CreateOrUpdateProjectRequest
+	if !decodeJSON(w, r, &dto) {
 		return
 	}
 
-	if err := request.Validate(); err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: err.Error()})
-		return
-	}
-
-	p, err := c.service.UpdateProject(r.Context(), chi.URLParam(r, "id"), request.Name, request.Client, request.StartDate, request.EndDate, request.CoverURL)
+	p, err := c.service.UpdateProject(r.Context(), chi.URLParam(r, "id"), dto.Name, dto.Client, dto.StartDate, dto.EndDate, dto.CoverURL)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		c.writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -129,19 +100,20 @@ func (c *ProjectController) UpdateProject(w http.ResponseWriter, r *http.Request
 
 func (c *ProjectController) SetFavorite(w http.ResponseWriter, r *http.Request) {
 	var dto SetFavoriteRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decodeJSON(w, r, &dto) {
 		return
 	}
 	if dto.Favorite == nil {
-		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "favorite is required"})
+		writeJSON(w, http.StatusUnprocessableEntity, validationResponse{
+			Error:  "validation failed",
+			Fields: map[string]string{"favorite": "favorite is required"},
+		})
 		return
 	}
 
 	p, err := c.service.SetFavorite(r.Context(), chi.URLParam(r, "id"), *dto.Favorite)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		c.writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -149,8 +121,42 @@ func (c *ProjectController) SetFavorite(w http.ResponseWriter, r *http.Request) 
 
 func (c *ProjectController) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	if err := c.service.DeleteProject(r.Context(), chi.URLParam(r, "id")); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		c.writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// decodeJSON reads the body into dst, refusing unknown fields (400) and bodies over 1 MiB (413).
+// It answers the request itself and returns false when the body is not usable.
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(dst); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, errors.New("request body must be at most 1 MiB"))
+			return false
+		}
+		writeError(w, http.StatusBadRequest, err)
+		return false
+	}
+	return true
+}
+
+// writeServiceError turns a domain error into its HTTP answer. Anything unexpected is logged and
+// answered with a generic 500, so database details never reach the client.
+func (c *ProjectController) writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
+	var validation *project.ValidationError
+	switch {
+	case errors.As(err, &validation):
+		writeJSON(w, http.StatusUnprocessableEntity, validationResponse{Error: validation.Error(), Fields: validation.Fields})
+	case errors.Is(err, project.ErrProjectNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: project.ErrProjectNotFound.Error()})
+	default:
+		c.logger.ErrorContext(r.Context(), "request failed", "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "internal server error"})
+	}
 }

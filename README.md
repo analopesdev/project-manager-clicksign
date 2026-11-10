@@ -170,11 +170,6 @@ Detalhes, decisões e exemplos em [`api/README.md`](api/README.md).
 
 ## Limitações conhecidas
 
-- **A API responde diferente da própria documentação em alguns casos**: `sort` inválido devolve
-  500 (o contrato diz 422); `PUT`, `PATCH` e `DELETE` em id inexistente devolvem 500 (o contrato
-  diz 404); erros 422 vêm como um texto único e não por campo; e algumas mensagens de erro expõem
-  detalhes internos do banco. O front trata esses casos com uma mensagem genérica, e a
-  validação do formulário (zod) evita a maioria deles antes de chegar à API.
 - **A busca não ignora acentos** (`migracao` não acha `Migração`) e é por trecho do nome ou do
   cliente.
 - **Sem paginação**: a lista traz todos os projetos de uma vez.
