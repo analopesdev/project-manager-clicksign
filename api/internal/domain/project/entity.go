@@ -8,6 +8,12 @@ import (
 
 const DateLayout = "2006-01-02"
 
+const (
+	SortName      = "name"
+	SortStartDate = "start_date"
+	SortEndDate   = "end_date"
+)
+
 type Project struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -59,4 +65,15 @@ func ValidateProjectInput(name string, client string, startDate string, endDate 
 	}
 
 	return validationErrors.orNil()
+}
+
+// ValidateSort accepts an empty sort (the default) or one of the supported orderings.
+func ValidateSort(sort string) error {
+	switch sort {
+	case "", SortName, SortStartDate, SortEndDate:
+		return nil
+	}
+	validationErrors := &ValidationError{}
+	validationErrors.add("sort", "sort must be one of name, start_date, end_date")
+	return validationErrors
 }

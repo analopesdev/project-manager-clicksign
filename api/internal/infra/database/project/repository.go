@@ -11,6 +11,17 @@ import (
 	"github.com/analopesdev/project-manager-clicksign/api/internal/domain/project"
 )
 
+// orderings maps each supported sort to a fixed ORDER BY. The value from the request is only ever
+// used as a key, never concatenated into the SQL. Every ordering ends with id so it is stable.
+var orderings = map[string]string{
+	project.SortName:      "lower(name), id",
+	project.SortStartDate: "start_date DESC, id",
+	// Upcoming deadlines first (soonest first), finished projects last (most recently finished first).
+	project.SortEndDate: `(end_date < CURRENT_DATE),
+		CASE WHEN end_date >= CURRENT_DATE THEN end_date END ASC,
+		CASE WHEN end_date < CURRENT_DATE THEN end_date END DESC, id`,
+}
+
 type ProjectRepository struct {
 	db *sql.DB
 }
@@ -56,6 +67,9 @@ func (r *ProjectRepository) Create(ctx context.Context, p *project.Project) (*pr
 func (r *ProjectRepository) GetById(ctx context.Context, id string) (*project.Project, error) {
 	p, err := scanProject(r.db.QueryRowContext(ctx, `SELECT id, name, client, start_date, end_date, cover_url, favorite, created_at, updated_at FROM projects WHERE id = $1`, id))
 
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, project.ErrProjectNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("getting project: %w", err)
 	}
@@ -82,9 +96,14 @@ func (r *ProjectRepository) List(ctx context.Context, search string, sort string
 		query += ` WHERE ` + strings.Join(where, " AND ")
 	}
 
-	if sort != "" {
-		query += ` ORDER BY ` + sort
+	if sort == "" {
+		sort = project.SortName
 	}
+	orderBy, ok := orderings[sort]
+	if !ok {
+		return nil, 0, fmt.Errorf("unsupported sort %q", sort)
+	}
+	query += ` ORDER BY ` + orderBy
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -121,7 +140,11 @@ func (r *ProjectRepository) Update(ctx context.Context, p *project.Project) (*pr
 		RETURNING id, name, client, start_date, end_date, cover_url, favorite, created_at, updated_at`,
 		p.Name, p.Client, p.StartDate, p.EndDate, p.CoverURL, p.ID)
 
-	return scanProject(row)
+	updated, err := scanProject(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, project.ErrProjectNotFound
+	}
+	return updated, err
 }
 
 func (r *ProjectRepository) SetFavorite(ctx context.Context, id string, favorite bool) (*project.Project, error) {

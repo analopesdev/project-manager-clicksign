@@ -39,18 +39,15 @@ If the process exits right after starting, the last line of its log says why
 Uploaded files are stored in `UPLOAD_DIR` (default `uploads/`, git-ignored). The type is
 detected from the file content, not from its name or extension.
 
-Validation errors return **422** with the validator message in `{"error": "..."}`.
-Unknown JSON fields return 400; bodies are limited to 1 MiB.
+Errors:
 
-### Known gaps
-
-The behaviour below differs from `docs/openapi.yaml`:
-
-- An invalid `sort` returns 500 (the spec says 422).
-- `PUT`, `PATCH` and `DELETE` on an id that does not exist return 500 (the spec says 404).
-- 422 errors come as a single message, not per field (`fields`), and some error messages expose
-  internal details of the database.
-- The list response carries `total` at the top level, not under `meta.total`.
+| Status | When |
+|---|---|
+| 400 | malformed JSON or an unknown field |
+| 404 | the project does not exist, or the id is not a UUID |
+| 413 | request body over 1 MiB |
+| 422 | invalid data, as `{"error":"validation failed","fields":{"name":"name is required"}}` (also an unknown `sort`) |
+| 500 | anything unexpected: `{"error":"internal server error"}`; details go to the log, never to the client |
 
 ## Decisions
 
