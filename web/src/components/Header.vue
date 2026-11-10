@@ -2,16 +2,13 @@
 import logoUrl from "@/assets/logo.png";
 import searchUrl from "@/assets/icons/search.svg";
 import { useProjectSearch } from "@/composables/useProjectSearch";
-import { useRoute, useRouter } from "vue-router";
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 
 const route = useRoute();
-const router = useRouter();
 const { isOpen, toggle } = useProjectSearch();
 
-async function onSearchClick() {
-  if (route.path !== "/") await router.push("/");
-  toggle();
-}
+const isHome = computed(() => route.path === "/");
 </script>
 
 <template>
@@ -29,7 +26,7 @@ async function onSearchClick() {
         <span class="brand-name">Gerenciador<br />de Projetos</span>
       </router-link>
 
-      <div class="actions">
+      <div v-if="isHome" class="actions">
         <q-btn
           flat
           round
@@ -38,7 +35,7 @@ async function onSearchClick() {
           class="search-button"
           aria-label="Buscar projetos"
           :aria-expanded="isOpen"
-          @click="onSearchClick"
+          @click="toggle"
         />
       </div>
     </q-toolbar>
