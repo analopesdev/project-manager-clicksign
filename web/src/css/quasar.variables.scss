@@ -58,6 +58,11 @@ $radius-pill: 999px;
 
 $page-gutter: 42px;
 $page-padding-top: 60px;
+$duration-fast: 150ms;
+$duration-base: 200ms;
+$ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+$ease-in: cubic-bezier(0.4, 0, 1, 1);
+
 $header-height: 80px;
 $control-height: 40px;
 $select-width: 296px;

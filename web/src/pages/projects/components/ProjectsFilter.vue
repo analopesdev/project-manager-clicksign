@@ -7,7 +7,7 @@ const favoriteOnly = defineModel<boolean>("favoriteOnly", { required: true });
 const sort = defineModel<ProjectSort>("sort", { required: true });
 
 defineProps<{
-  total: number;
+  total: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -27,7 +27,13 @@ const sortOptions: { label: string; value: ProjectSort }[] = [
   <div class="filter">
     <h1 class="heading">
       Projetos
-      <span class="count" :aria-label="`${total} projetos`">({{ total }})</span>
+      <span
+        v-if="total !== null"
+        class="count"
+        :aria-label="`${total} projetos`"
+      >
+        ({{ total }})
+      </span>
     </h1>
 
     <div class="controls">

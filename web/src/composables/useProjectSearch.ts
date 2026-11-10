@@ -31,11 +31,12 @@ const history = ref<string[]>(loadHistory());
 
 function useProjectSearch() {
   function toggle() {
-    isOpen.value = !isOpen.value;
-    if (!isOpen.value) term.value = "";
+    if (isOpen.value) close();
+    else isOpen.value = true;
   }
 
   function close() {
+    remember(term.value);
     isOpen.value = false;
     term.value = "";
   }

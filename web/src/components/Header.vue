@@ -2,8 +2,16 @@
 import logoUrl from "@/assets/logo.png";
 import searchUrl from "@/assets/icons/search.svg";
 import { useProjectSearch } from "@/composables/useProjectSearch";
+import { useRoute, useRouter } from "vue-router";
 
+const route = useRoute();
+const router = useRouter();
 const { isOpen, toggle } = useProjectSearch();
+
+async function onSearchClick() {
+  if (route.path !== "/") await router.push("/");
+  toggle();
+}
 </script>
 
 <template>
@@ -30,7 +38,7 @@ const { isOpen, toggle } = useProjectSearch();
           class="search-button"
           aria-label="Buscar projetos"
           :aria-expanded="isOpen"
-          @click="toggle"
+          @click="onSearchClick"
         />
       </div>
     </q-toolbar>

@@ -69,6 +69,7 @@ const emit = defineEmits<{
 $dialog-width: 582px;
 $dialog-min-height: 321px;
 $dialog-offset-y: -87.5px;
+$dialog-offset-min-height: 720px;
 $badge-size: 64px;
 $cancel-width: 226px;
 
@@ -78,12 +79,17 @@ $cancel-width: 226px;
   width: $dialog-width;
   max-width: calc(100vw - 32px);
   min-height: $dialog-min-height;
+  margin-top: $badge-size * 0.5;
   padding: 0 $space-6 $space-6;
+  overflow: visible;
   text-align: center;
   background: $surface;
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
-  transform: translateY($dialog-offset-y);
+
+  @media (min-width: $breakpoint-sm-min) and (min-height: $dialog-offset-min-height) {
+    transform: translateY($dialog-offset-y);
+  }
 }
 
 .badge {
@@ -177,5 +183,9 @@ $cancel-width: 226px;
 <style lang="scss">
 .delete-dialog .q-dialog__backdrop {
   background: $overlay;
+}
+
+.delete-dialog .q-dialog__inner {
+  overflow-y: auto;
 }
 </style>
