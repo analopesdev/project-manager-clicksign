@@ -2,3 +2,9 @@ body {
   font-family: $typography-font-family;
   background: $page-bg;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .q-skeleton--anim-wave::after {
+    animation: none;
+  }
+}

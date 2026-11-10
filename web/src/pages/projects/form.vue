@@ -30,6 +30,7 @@ const id = computed(() => {
 
 const initial = ref<ProjectFormValues>();
 const loading = ref(false);
+const skeletonRows = [1, 1, 2];
 const loadFailure = ref<"not-found" | "failed" | null>(null);
 const loadMessage = computed(() =>
   loadFailure.value === "not-found"
@@ -98,7 +99,21 @@ async function save(values: ProjectFormValues, coverFile: File | null) {
     />
 
     <section class="panel">
-      <q-spinner v-if="loading" color="primary" size="40px" />
+      <div v-if="loading" class="skeleton-form" role="status">
+        <span class="sr-only">Carregando projeto…</span>
+        <div
+          v-for="(row, index) in skeletonRows"
+          :key="index"
+          :class="row === 1 ? 'skeleton-field' : 'skeleton-dates'"
+        >
+          <div v-for="field in row" :key="field" class="skeleton-field">
+            <q-skeleton type="text" class="skeleton-label" />
+            <q-skeleton square class="skeleton-input" />
+          </div>
+        </div>
+        <q-skeleton square class="skeleton-cover" />
+        <q-skeleton class="skeleton-button" />
+      </div>
       <p v-else-if="loadFailure" class="state" role="alert">{{
         loadMessage
       }}</p>
@@ -116,6 +131,8 @@ async function save(values: ProjectFormValues, coverFile: File | null) {
 </template>
 
 <style scoped lang="scss">
+$form-width: 704px;
+$dropzone-height: 174px;
 $panel-offset: 33px;
 $panel-padding-y: 52px;
 
@@ -143,5 +160,48 @@ $panel-padding-y: 52px;
 .state {
   margin: 0;
   color: $text-muted;
+}
+
+.skeleton-form {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+  width: 100%;
+  max-width: $form-width;
+}
+
+.skeleton-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-7;
+}
+
+.skeleton-field {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.skeleton-label {
+  width: 35%;
+  height: 22px;
+}
+
+.skeleton-input {
+  height: $control-height;
+  border-radius: $radius-md;
+}
+
+.skeleton-cover {
+  height: $dropzone-height;
+}
+
+.skeleton-button {
+  height: $button-height-lg;
+  border-radius: $radius-pill;
+}
+
+.sr-only {
+  @include sr-only;
 }
 </style>

@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { Project } from "../service";
 
@@ -45,23 +45,31 @@ function deferred(signal?: AbortSignal) {
   return { promise, resolve };
 }
 
+const mounted: ReturnType<typeof mount>[] = [];
+
 async function setup() {
   vi.resetModules();
   const { useProjectList } = await import("./useProjectList");
   let list!: ReturnType<typeof useProjectList>;
-  mount(
-    defineComponent({
-      setup() {
-        list = useProjectList();
-        return () => null;
-      }
-    })
+  mounted.push(
+    mount(
+      defineComponent({
+        setup() {
+          list = useProjectList();
+          return () => null;
+        }
+      })
+    )
   );
   await flushPromises();
   return list;
 }
 
 describe("useProjectList", () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount());
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     route.query = {};
@@ -112,6 +120,64 @@ describe("useProjectList", () => {
       list.sort.value = "name";
       await flushPromises();
       expect(replace).toHaveBeenLastCalledWith({ query: {} });
+    });
+  });
+
+  describe("busca", () => {
+    it("pesquisa em todos os projetos, mesmo com 'Apenas Favoritos' ligado", async () => {
+      route.query = { favorite: "1", q: "iridium" };
+      await setup();
+
+      expect(listProjects.mock.calls[0]?.[0]).toMatchObject({
+        search: "iridium",
+        favorite: false
+      });
+    });
+
+    it("volta a filtrar favoritos quando a busca é limpa", async () => {
+      route.query = { favorite: "1" };
+      const list = await setup();
+      expect(listProjects.mock.calls[0]?.[0]).toMatchObject({ favorite: true });
+
+      list.searchTerm.value = "app";
+      await flushPromises();
+      expect(listProjects.mock.lastCall?.[0]).toMatchObject({
+        favorite: false
+      });
+
+      list.searchTerm.value = "";
+      await flushPromises();
+      expect(listProjects.mock.lastCall?.[0]).toMatchObject({ favorite: true });
+    });
+  });
+
+  describe("URL -> tela", () => {
+    it("atualiza os filtros quando a URL muda (voltar, avançar, link)", async () => {
+      const list = await setup();
+
+      route.query = { favorite: "1", sort: "start_date" };
+      await flushPromises();
+
+      expect(list.favoriteOnly.value).toBe(true);
+      expect(list.sort.value).toBe("start_date");
+      expect(listProjects.mock.lastCall?.[0]).toMatchObject({
+        favorite: true,
+        sort: "start_date"
+      });
+    });
+
+    it("abre a busca com o termo da URL e fecha quando ele some", async () => {
+      const list = await setup();
+
+      route.query = { q: "app" };
+      await flushPromises();
+      expect(list.searchOpen.value).toBe(true);
+      expect(list.searchTerm.value).toBe("app");
+
+      route.query = {};
+      await flushPromises();
+      expect(list.searchOpen.value).toBe(false);
+      expect(list.searchTerm.value).toBe("");
     });
   });
 

@@ -6,16 +6,28 @@ Go + chi + Postgres, wired with uber/fx.
 
 ```bash
 docker compose up -d          # Postgres on localhost:5434
-echo "DATABASE_URL=postgres://postgres:postgres@localhost:5434/project_manager?sslmode=disable" > .env
+cp .env.example .env          # DATABASE_URL already matches docker-compose.yml
 go run ./cmd                  # migrations run on startup
 ```
+
+Check it with `curl localhost:8080/health`. Interactive docs (Scalar, loaded from a CDN) are at
+<http://localhost:8080/docs> and the raw spec at `/openapi.yaml`.
+
+If the process exits right after starting, the last line of its log says why
+(`DATABASE_URL is required`, `connection refused`...).
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DATABASE_URL` | (required) | Postgres connection string |
+| `PORT` | `8080` | HTTP port |
+| `UPLOAD_DIR` | `uploads` | where uploaded covers are stored (git-ignored) |
 
 
 ## Endpoints
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/projects?q=&favorite=&sort=` | `sort`: `name` (default), `end_date` or `start_date` |
+| GET | `/projects?search=&favorite=&sort=` | `search` matches name or client; `favorite=true` or `1`; `sort`: `name` (default), `end_date` or `start_date`. Returns `{"data": [...], "total": N}` |
 | POST | `/projects` | 201 |
 | GET | `/projects/{id}` | |
 | PUT | `/projects/{id}` | full update |
@@ -27,15 +39,24 @@ go run ./cmd                  # migrations run on startup
 Uploaded files are stored in `UPLOAD_DIR` (default `uploads/`, git-ignored). The type is
 detected from the file content, not from its name or extension.
 
-Validation errors return **422** with per-field messages:
-`{"error":"validation failed","fields":{"name":"name is required"}}`.
+Validation errors return **422** with the validator message in `{"error": "..."}`.
 Unknown JSON fields return 400; bodies are limited to 1 MiB.
+
+### Known gaps
+
+The behaviour below differs from `docs/openapi.yaml`:
+
+- An invalid `sort` returns 500 (the spec says 422).
+- `PUT`, `PATCH` and `DELETE` on an id that does not exist return 500 (the spec says 404).
+- 422 errors come as a single message, not per field (`fields`), and some error messages expose
+  internal details of the database.
+- The list response carries `total` at the top level, not under `meta.total`.
 
 ## Decisions
 
-- **Total of projects:** the list response is `{"data": [...], "meta": {"total": N}}`.
-  `total` is the number of registered projects, ignoring `q` and `favorite`, so the
-  front does not need a second request.
+- **Total of projects:** the list response is `{"data": [...], "total": N}`. `total` is the
+  number of registered projects, ignoring `search` and `favorite`, so the front does not need
+  a second request.
 - **"Closest to the end date" (`sort=end_date`):** upcoming projects first, soonest
   deadline first; projects already finished come last, most recently finished first.
 - **"Most recently started" (`sort=start_date`):** `start_date` descending. Every sort

@@ -48,6 +48,21 @@ describe("useProjectSearch", () => {
     expect((await load()).history.value).toEqual([]);
   });
 
+  it("guarda no histórico a busca que estava aberta ao fechar", async () => {
+    const search = await load();
+    search.isOpen.value = true;
+    search.term.value = "alfa";
+    search.close();
+    expect(search.history.value).toEqual(["alfa"]);
+  });
+
+  it("não guarda nada ao fechar sem ter digitado", async () => {
+    const search = await load();
+    search.isOpen.value = true;
+    search.close();
+    expect(search.history.value).toEqual([]);
+  });
+
   it("fechar a busca limpa o termo", async () => {
     const search = await load();
     search.isOpen.value = true;

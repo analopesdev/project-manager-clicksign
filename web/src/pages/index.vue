@@ -4,11 +4,14 @@ import { useRouter } from "vue-router";
 import DeleteProjectDialog from "./projects/components/DeleteProjectDialog.vue";
 import PageHeader from "./projects/components/PageHeader.vue";
 import ProjectCard from "./projects/components/ProjectCard.vue";
+import ProjectCardSkeleton from "./projects/components/ProjectCardSkeleton.vue";
 import ProjectsEmpty from "./projects/components/ProjectsEmpty.vue";
 import ProjectsFilter from "./projects/components/ProjectsFilter.vue";
 import ProjectsSearch from "./projects/components/ProjectsSearch.vue";
 import { useProjectList } from "./projects/composables/useProjectList";
 import type { Project } from "./projects/service";
+
+const SKELETON_COUNT = 6;
 
 const router = useRouter();
 const {
@@ -49,7 +52,7 @@ function goToEdit(project: Project) {
 
     <template v-else>
       <ProjectsSearch
-        v-if="searchOpen"
+        :open="searchOpen"
         v-model="searchTerm"
         @close="closeSearch"
       />
@@ -65,25 +68,34 @@ function goToEdit(project: Project) {
         v-else
         v-model:favorite-only="favoriteOnly"
         v-model:sort="sort"
-        :total="total"
+        :total="loaded ? total : null"
         @create="goToCreate"
       />
 
-      <div v-if="loading" class="state" role="status">
-        <q-spinner color="primary" size="40px" />
-        <span class="sr-only">Carregando projetos…</span>
-      </div>
+      <ul
+        v-if="loading && !loaded"
+        class="grid"
+        role="status"
+        aria-label="Carregando projetos"
+      >
+        <ProjectCardSkeleton v-for="n in SKELETON_COUNT" :key="n" />
+      </ul>
 
       <div v-else-if="error" class="state" role="alert">
         <p>{{ error }}</p>
         <q-btn color="primary" label="Tentar novamente" no-caps @click="load" />
       </div>
 
-      <p v-else-if="projects.length === 0" class="state">
+      <p v-else-if="projects.length === 0 && !loading" class="state">
         Nenhum projeto encontrado.
       </p>
 
-      <ul v-else class="grid">
+      <ul
+        v-else
+        class="grid"
+        :class="{ 'grid--loading': loading }"
+        :aria-busy="loading"
+      >
         <li v-for="project in projects" :key="project.id" class="grid-item">
           <ProjectCard
             :project="project"
@@ -134,6 +146,11 @@ function goToEdit(project: Project) {
 
 .grid-item {
   display: contents;
+}
+
+.grid--loading {
+  opacity: 0.6;
+  transition: opacity $duration-base $ease-out;
 }
 
 .state {

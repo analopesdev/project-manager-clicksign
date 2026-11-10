@@ -5,6 +5,10 @@ import { useProjectSearch } from "@/composables/useProjectSearch";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+defineProps<{
+  open: boolean;
+}>();
+
 const term = defineModel<string>({ required: true });
 
 const emit = defineEmits<{
@@ -24,58 +28,63 @@ function pick(value: string) {
 </script>
 
 <template>
-  <div class="backdrop" @click="emit('close')" />
+  <Transition name="fade" appear>
+    <div v-if="open && !term" class="backdrop" @click="emit('close')" />
+  </Transition>
 
-  <div
-    class="search"
-    :class="{ 'search--results': term }"
-    role="search"
-    @keydown.esc="emit('close')"
-  >
-    <div class="field">
-      <img :src="searchUrl" alt="" width="20" height="20" class="icon" />
-      <q-input
-        v-model.trim="term"
-        :debounce="SEARCH_DEBOUNCE_MS"
-        borderless
-        dense
-        autofocus
-        placeholder="Digite o nome do projeto..."
-        aria-label="Buscar projeto pelo nome"
-        class="input"
-        @keydown.enter="submit"
-      />
-    </div>
-
-    <ul
-      v-if="history.length && !term"
-      class="history"
-      aria-label="Buscas recentes"
+  <Transition name="drop" appear>
+    <div
+      v-if="open"
+      class="search"
+      :class="{ 'search--results': term }"
+      role="search"
+      @keydown.esc="emit('close')"
     >
-      <li v-for="item in history" :key="item" class="history-item">
-        <button type="button" class="history-pick" @click="pick(item)">
-          <img
-            :src="historyUrl"
-            alt=""
-            width="16"
-            height="16"
-            class="history-icon"
-          />
-          <span>{{ item }}</span>
-        </button>
-        <q-btn
-          flat
-          round
+      <div class="field">
+        <img :src="searchUrl" alt="" width="20" height="20" class="icon" />
+        <q-input
+          v-model.trim="term"
+          :debounce="SEARCH_DEBOUNCE_MS"
+          borderless
           dense
-          size="sm"
-          icon="close"
-          :aria-label="`Remover ${item} do histórico`"
-          class="history-remove"
-          @click="forget(item)"
+          autofocus
+          placeholder="Digite o nome do projeto..."
+          aria-label="Buscar projeto pelo nome"
+          class="input"
+          @keydown.enter="submit"
         />
-      </li>
-    </ul>
-  </div>
+      </div>
+
+      <ul
+        v-if="history.length && !term"
+        class="history"
+        aria-label="Buscas recentes"
+      >
+        <li v-for="item in history" :key="item" class="history-item">
+          <button type="button" class="history-pick" @click="pick(item)">
+            <img
+              :src="historyUrl"
+              alt=""
+              width="16"
+              height="16"
+              class="history-icon"
+            />
+            <span>{{ item }}</span>
+          </button>
+          <q-btn
+            flat
+            round
+            dense
+            size="sm"
+            icon="close"
+            :aria-label="`Remover ${item} do histórico`"
+            class="history-remove"
+            @click="forget(item)"
+          />
+        </li>
+      </ul>
+    </div>
+  </Transition>
 </template>
 
 <style scoped lang="scss">
@@ -101,6 +110,50 @@ function pick(value: string) {
 .search--results {
   border-color: transparent;
   border-radius: 0;
+}
+
+.drop-enter-active {
+  transition:
+    transform $duration-base $ease-out,
+    opacity $duration-base $ease-out;
+}
+
+.drop-leave-active {
+  transition:
+    transform $duration-fast $ease-in,
+    opacity $duration-fast $ease-in;
+
+  .history {
+    display: none;
+  }
+}
+
+.drop-enter-from,
+.drop-leave-to {
+  opacity: 0;
+  transform: translateY(-$space-4);
+}
+
+.fade-enter-active {
+  transition: opacity $duration-base $ease-out;
+}
+
+.fade-leave-active {
+  transition: opacity $duration-fast $ease-in;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-enter-active,
+  .drop-leave-active,
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
 }
 
 .field {

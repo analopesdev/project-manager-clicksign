@@ -39,6 +39,10 @@ export function useProjectList() {
 
   let controller: AbortController | null = null;
 
+  function isSearching() {
+    return search.term.value.trim() !== "";
+  }
+
   async function load() {
     controller?.abort();
     const current = new AbortController();
@@ -50,7 +54,7 @@ export function useProjectList() {
       const result = await listProjects(
         {
           search: search.term.value,
-          favorite: favoriteOnly.value,
+          favorite: !isSearching() && favoriteOnly.value,
           sort: sort.value
         },
         current.signal
@@ -117,8 +121,25 @@ export function useProjectList() {
     syncUrl();
     void load();
   });
+
+  watch(
+    () => route.query,
+    query => {
+      favoriteOnly.value = query.favorite === "1";
+      sort.value = parseSort(query.sort);
+      const term = typeof query.q === "string" ? query.q.trim() : "";
+      if (term === search.term.value.trim()) return;
+      search.isOpen.value = term !== "";
+      search.term.value = term;
+    }
+  );
+
   onMounted(load);
-  onUnmounted(() => controller?.abort());
+  onUnmounted(() => {
+    controller?.abort();
+    search.isOpen.value = false;
+    search.term.value = "";
+  });
 
   return {
     projects,
