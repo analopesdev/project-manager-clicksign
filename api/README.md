@@ -21,6 +21,11 @@ go run ./cmd                  # migrations run on startup
 | PUT | `/projects/{id}` | full update |
 | PATCH | `/projects/{id}/favorite` | body `{"favorite": true}` |
 | DELETE | `/projects/{id}` | 204 |
+| POST | `/uploads` | multipart, field `file` (.jpg/.png, up to 5 MiB); 201 `{"url": "..."}` to use as `cover_url` |
+| GET | `/uploads/{name}` | serves a previously uploaded image |
+
+Uploaded files are stored in `UPLOAD_DIR` (default `uploads/`, git-ignored). The type is
+detected from the file content, not from its name or extension.
 
 Validation errors return **422** with per-field messages:
 `{"error":"validation failed","fields":{"name":"name is required"}}`.
