@@ -4,14 +4,11 @@ import { useRouter } from "vue-router";
 import DeleteProjectDialog from "./projects/components/DeleteProjectDialog.vue";
 import PageHeader from "./projects/components/PageHeader.vue";
 import ProjectCard from "./projects/components/ProjectCard.vue";
-import ProjectCardSkeleton from "./projects/components/ProjectCardSkeleton.vue";
 import ProjectsEmpty from "./projects/components/ProjectsEmpty.vue";
 import ProjectsFilter from "./projects/components/ProjectsFilter.vue";
 import ProjectsSearch from "./projects/components/ProjectsSearch.vue";
 import { useProjectList } from "./projects/composables/useProjectList";
 import type { Project } from "./projects/service";
-
-const SKELETON_COUNT = 6;
 
 const router = useRouter();
 const {
@@ -72,14 +69,14 @@ function goToEdit(project: Project) {
         @create="goToCreate"
       />
 
-      <ul
+      <div
         v-if="loading && !loaded"
-        class="grid"
+        class="state"
         role="status"
         aria-label="Carregando projetos"
       >
-        <ProjectCardSkeleton v-for="n in SKELETON_COUNT" :key="n" />
-      </ul>
+        <q-spinner color="primary" size="40px" />
+      </div>
 
       <div v-else-if="error" class="state" role="alert">
         <p>{{ error }}</p>
